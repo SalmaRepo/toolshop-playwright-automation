@@ -9,6 +9,6 @@ export const registrationData = {
     state: 'Telangana',
     country: 'India',
     phone: '9876543210',
-    password: 'Test@12345',
+    password: "salmaTest@12345",
     houseNumber:'16'
 };
