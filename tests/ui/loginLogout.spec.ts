@@ -1,18 +1,16 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../../fixtures/testFixtures";
 import { LoginPage } from "../../pages/LoginPage";
 import { invalidLogins } from "../../test-data/loginData";
-import { requireEnv } from "../../utils/env";
 import { HeaderComponent } from "../../components/HeaderComponent";
 import {RegisterPage} from "../../pages/RegisterPage";
 import {registrationData} from "../../test-data/registrationData"
 import {generateUniqueEmail} from "../../utils/dataGenerator"
 
+
 test.describe("Login and Logout", () => {
-  const validEmail = requireEnv("TEST_USER_EMAIL");
-  const validPassword = requireEnv("TEST_USER_PASSWORD");
 
   test("UI-LOG-01: Valid login lands on the account page @P1 @smoke @regression", async ({
-    page,
+    page,newUser
   }) => {
     const loginPage = new LoginPage(page);
     const header=new HeaderComponent(page)
@@ -20,13 +18,13 @@ test.describe("Login and Logout", () => {
 
     await loginPage.navigateToLoginPage();
 
-    await loginPage.loginUser(validEmail, validPassword);
+    await loginPage.loginUser(newUser.email, newUser.password);
     await expect(
       page.getByText("Here you can manage your profile, favorites and orders."),
     ).toBeVisible();
 
     await expect(page).toHaveURL(/account/);
-    await expect(header.userMenu).toHaveText('salma automation sdet')
+    await expect(header.userMenu).toHaveText(`${registrationData.firstName} ${registrationData.lastName}`)
 
   });
 
@@ -63,7 +61,7 @@ test.describe("Login and Logout", () => {
     );
   });
 
-  test("UI-LOG-04:  Empty fields show validation messages  @P2 @regression", async ({
+  test("UI-LOG-04: Empty fields show validation messages  @P2 @regression", async ({
     page,
   }) => {
     const loginPage = new LoginPage(page);
@@ -78,7 +76,7 @@ test.describe("Login and Logout", () => {
   });
 
   test("UI-LOG-05:Logout ends the session and protected pages are no longer accessible  @P1 @regression", async ({
-    page,
+    page,newUser
   }) => {
      const header= new HeaderComponent(page);
     const loginPage = new LoginPage(page);
@@ -86,7 +84,7 @@ test.describe("Login and Logout", () => {
     await loginPage.navigateToLoginPage();
 
     //login
-    await loginPage.loginUser(validEmail, validPassword);
+    await loginPage.loginUser(newUser.email, newUser.password);
 
     await expect(page).toHaveURL(/account/);
    

@@ -1,7 +1,7 @@
 
 export const registrationData = {
-    firstName: 'Salma',
-    lastName: 'Tester',
+    firstName: 'salma',
+    lastName: 'automation sdet',
     dob: '1995-05-15',
     street: '123 Test Street',
     postalCode: '500062',
