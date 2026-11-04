@@ -1,25 +1,190 @@
-import {test,expect} from "@playwright/test"
+import { test, expect } from "@playwright/test";
+import { ProductListingPage } from "../../pages/ProductListingPage";
+import { HeaderComponent } from "../../components/HeaderComponent";
+import { FiltersComponent } from "../../components/FiltersComponent";
+import { waitForProductsResponse } from "../../utils/waits";
+import { ProductDetailsPage } from "../../pages/ProductDetailPage";
 
-test("sample",async ({page})=>{
-    await page.goto("https://practicesoftwaretesting.com/")
-    const handles = page.getByRole("slider");
+test.describe("Product listing, search, filters and sorting", () => {
+  test("UI-PRD-01: Home page product grid loads with name, price and image for each product @P1 @S", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
 
-console.log("Minimum handle:");
-console.log("Current:", await handles.nth(0).getAttribute("aria-valuenow"));
-console.log("Min:", await handles.nth(0).getAttribute("aria-valuemin"));
-console.log("Max:", await handles.nth(0).getAttribute("aria-valuemax"));
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
 
-console.log("Maximum handle:");
-console.log("Current:", await handles.nth(1).getAttribute("aria-valuenow"));
-console.log("Min:", await handles.nth(1).getAttribute("aria-valuemin"));
-console.log("Max:", await handles.nth(1).getAttribute("aria-valuemax"));
+    // 1. The grid is not empty
+    await expect(listing.productCards).not.toHaveCount(0);
 
-await handles.nth(0).focus();
-await page.keyboard.press("ArrowRight");
+    // 2. Every card shows a name, a price and an image
+    const cards = await listing.productCards.all();
 
-console.log(
-  "Minimum after ArrowRight:",
-  await handles.nth(0).getAttribute("aria-valuenow")
-);
-})
+    for (const card of cards) {
+      await expect(listing.getProductName(card)).not.toBeEmpty();
+      await expect(listing.getProductPrice(card)).toContainText("$");
+      await expect(listing.getProductImage(card)).toBeVisible();
+    }
+  });
 
+  test("UI-PRD-02: Search with a valid keyword returns matching products @P1 @S", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+
+    const productToSearch = "Hammer";
+
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+    const namesBefore = await listing.getAllProductNames();
+    await expect(listing.productCards).not.toHaveCount(0);
+    await listing.searchProduct(productToSearch);
+    await listing.waitForGridToChange(namesBefore);
+    const count = await listing.getProductCount();
+    await expect(listing.searchCaption).toBeVisible();
+    await expect(listing.searchCaption).toHaveText(
+      `Searched for: ${productToSearch}`,
+    );
+    await expect(listing.searchCount).toHaveText(
+      ` ${count} products found for '${productToSearch}' `,
+    );
+  });
+
+  test("UI-PRD-03: Search with no matches shows a proper noresults message @P2 @R", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+
+    const productToSearch = "noMatch";
+
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+    await expect(listing.productCards).not.toHaveCount(0);
+    await listing.waitForProducts();
+    await listing.searchProduct(productToSearch);
+    await listing.waitForProducts();
+    await expect(listing.searchCount).toBeVisible();
+    await expect(listing.searchCount).toHaveText(
+      ` 0 products found for '${productToSearch}' `,
+    );
+    await expect(page.getByText("There are no products found.")).toBeVisible();
+  });
+
+  test("UI-PRD-04: Filter by category shows only products of that category @P1 @regression", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+    const details = new ProductDetailsPage(page);
+
+    const category = "Wrench";
+
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+
+    const namesBefore = await listing.getAllProductNames();
+
+    await listing.filters.selectCategory(category);
+
+    // 1. The filter is ticked
+    await expect(listing.filters.categoryCheckbox(category)).toBeChecked();
+
+    // 2. Wait until the grid shows different products
+    await listing.waitForGridToChange(namesBefore);
+    const count = await listing.getProductCount();
+
+    // 3. Now the snapshot is safe
+    const namesAfter = await listing.getAllProductNames();
+    expect(namesAfter.some((name) => name.includes(category)));
+    // Collect the links first, because the page changes when we navigate
+    const links: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const link = await listing.productCards.nth(i).getAttribute("href");
+      links.push(link!);
+    }
+
+    // Open each product and check its category
+    for (const link of links) {
+      await page.goto(link);
+      await expect(details.category).toContainText(category);
+    }
+  });
+  test("UI-PRD-05: Filter by brand shows only products of that brand @P2 @regression", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+    const details = new ProductDetailsPage(page);
+
+    const brand = "MightyCraft Hardware";
+
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+
+    const namesBefore = await listing.getAllProductNames();
+
+    await listing.filters.selectBrand(brand);
+
+    // 1. The filter is ticked
+    await expect(listing.filters.brandCheckbox(brand)).toBeChecked();
+
+    // 2. Wait until the grid shows different products
+    await listing.waitForGridToChange(namesBefore);
+    const count = await listing.getProductCount();
+
+    // Collect the links first, because the page changes when we navigate
+    const links: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const link = await listing.productCards.nth(i).getAttribute("href");
+      links.push(link!);
+    }
+
+    // Open each product and check its brand
+    for (const link of links) {
+      await page.goto(link);
+      await expect(details.brand).toContainText(brand);
+    }
+  });
+
+  test("UI-PRD-06: Filter by price range returns products within the range @P2 @regression", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+    const details = new ProductDetailsPage(page);
+
+    const priceRangeMin = 20;
+    const priceRangeMax = 110;
+
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+
+    const namesBefore = await listing.getAllProductNames();
+
+    await listing.filters.filterByPrice(priceRangeMin, priceRangeMax);
+    await expect(page.locator(".ngx-slider-model-value")).toHaveText(
+      priceRangeMin.toString(),
+    );
+
+    // 2. Wait until the grid shows different products
+    await listing.waitForGridToChange(namesBefore);
+
+    while (true) {
+      const prices = await listing.getAllProductPrices();
+      expect(prices.length).toBeGreaterThan(0);
+      for (const price of prices) {
+        //console.log(price)
+
+        expect(price).toBeGreaterThanOrEqual(priceRangeMin);
+        expect(price).toBeLessThanOrEqual(priceRangeMax);
+      }
+
+      if (await listing.pagination.isLastPage()) {
+        break;
+      }
+      const namesOnCurrentPage = await listing.getAllProductNames();
+      //console.log(namesOnCurrentPage)
+
+      await listing.pagination.goToNextPage();
+
+      await listing.waitForGridToChange(namesOnCurrentPage);
+    }
+  });
+});

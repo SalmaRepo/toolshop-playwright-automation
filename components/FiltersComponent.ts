@@ -3,39 +3,32 @@ import { waitForProductsResponse } from "../utils/waits";
 
 export class FiltersComponent {
   readonly page: Page;
-  readonly categoryFilters: Locator;
-  readonly brandFilters: Locator;
   readonly priceRangeHandles: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.categoryFilters = page
-      .locator("#filters")
-      .filter({ hasText: "By category:" })
-      .locator(".checkbox");
-    this.brandFilters = page
-      .locator("#filters")
-      .filter({ hasText: "By brand:" })
-      .locator(".checkbox");
     this.priceRangeHandles = page.getByRole("slider");
   }
 
-  // Matches the whole label text, so "Saw" does not also match "Hand Saw".
-  private exactText(text: string) {
-    return new RegExp(`^\\s*${text}\\s*$`);
+  // Locators for assertions (e.g. expect(...).toBeChecked())
+  categoryCheckbox(category: string): Locator {
+    return this.page.getByRole("checkbox", { name: category, exact: true });
   }
 
+  brandCheckbox(brand: string): Locator {
+    return this.page.getByRole("checkbox", { name: brand, exact: true });
+  }
+
+  // Actions
   async selectCategory(category: string) {
     await waitForProductsResponse(this.page, () =>
-      this.categoryFilters
-        .filter({ hasText: this.exactText(category) })
-        .click(),
+      this.categoryCheckbox(category).check(),
     );
   }
 
   async selectBrand(brand: string) {
     await waitForProductsResponse(this.page, () =>
-      this.brandFilters.filter({ hasText: this.exactText(brand) }).click(),
+      this.brandCheckbox(brand).check(),
     );
   }
 

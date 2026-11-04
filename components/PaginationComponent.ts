@@ -6,12 +6,16 @@ export class PaginationComponent {
   readonly nextButton: Locator;
   readonly previousButton: Locator;
   readonly currentPage: Locator;
+  readonly lastPage:Locator;
+  readonly nextPageItem:Locator
 
   constructor(page: Page) {
     this.page = page;
     this.nextButton = page.locator('[data-test="pagination-next"]');
     this.previousButton = page.locator("button[aria-label='Previous']");
     this.currentPage = page.locator("li.page-item.active");
+    this.lastPage=page.locator("li.page-item.disabled");
+    this.nextPageItem = this.nextButton.locator("xpath=..");
   }
 
   async goToNextPage() {
@@ -28,4 +32,11 @@ export class PaginationComponent {
     const text = await this.currentPage.textContent();
     return Number(text?.trim());
   }
+
+  async isLastPage(): Promise<boolean> {
+  return await this.nextPageItem.evaluate(element =>
+    element.classList.contains("disabled")
+  );
+}
+  
 }
