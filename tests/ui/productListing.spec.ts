@@ -62,11 +62,10 @@ test.describe("Product listing, search, filters and sorting", () => {
     await expect(listing.productCards).not.toHaveCount(0);
     await listing.waitForProducts();
     await listing.searchProduct(productToSearch);
-    await listing.waitForProducts();
-    await expect(listing.searchCount).toBeVisible();
-    await expect(listing.searchCount).toHaveText(
-      ` 0 products found for '${productToSearch}' `,
+    await expect(listing.searchCount).toContainText(
+      `0 products found for '${productToSearch}'`,
     );
+    await expect(listing.productCards).toHaveCount(0);
     await expect(page.getByText("There are no products found.")).toBeVisible();
   });
 
@@ -92,9 +91,6 @@ test.describe("Product listing, search, filters and sorting", () => {
     await listing.waitForGridToChange(namesBefore);
     const count = await listing.getProductCount();
 
-    // 3. Now the snapshot is safe
-    const namesAfter = await listing.getAllProductNames();
-    expect(namesAfter.some((name) => name.includes(category)));
     // Collect the links first, because the page changes when we navigate
     const links: string[] = [];
     for (let i = 0; i < count; i++) {
@@ -159,32 +155,45 @@ test.describe("Product listing, search, filters and sorting", () => {
     const namesBefore = await listing.getAllProductNames();
 
     await listing.filters.filterByPrice(priceRangeMin, priceRangeMax);
-    await expect(page.locator(".ngx-slider-model-value")).toHaveText(
+    await expect(listing.filters.sliderValueMin).toHaveText(
       priceRangeMin.toString(),
     );
+    await expect(listing.filters.sliderValueMax).toHaveText(
+      priceRangeMax.toString(),
+    );
 
-    // 2. Wait until the grid shows different products
-    await listing.waitForGridToChange(namesBefore);
+    await expect
+      .poll(async () => {
+        const prices = await listing.getAllProductPrices();
+        return (
+          prices.length > 0 &&
+          prices.every((p) => p >= priceRangeMin && p <= priceRangeMax)
+        );
+      })
+      .toBe(true);
 
-    while (true) {
+    const MAX_PAGES_TO_CHECK = 10; // safety limit to prevent an endless loop
+
+    let reachedLastPage = false;
+    for (let pageNo = 1; pageNo <= MAX_PAGES_TO_CHECK; pageNo++) {
       const prices = await listing.getAllProductPrices();
       expect(prices.length).toBeGreaterThan(0);
-      for (const price of prices) {
-        //console.log(price)
 
+      for (const price of prices) {
         expect(price).toBeGreaterThanOrEqual(priceRangeMin);
         expect(price).toBeLessThanOrEqual(priceRangeMax);
       }
 
       if (await listing.pagination.isLastPage()) {
+        reachedLastPage = true;
         break;
       }
+
       const namesOnCurrentPage = await listing.getAllProductNames();
-      //console.log(namesOnCurrentPage)
-
       await listing.pagination.goToNextPage();
-
       await listing.waitForGridToChange(namesOnCurrentPage);
     }
+
+    expect(reachedLastPage).toBe(true);
   });
 });

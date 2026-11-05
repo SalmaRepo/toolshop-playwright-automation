@@ -4,10 +4,14 @@ import { waitForProductsResponse } from "../utils/waits";
 export class FiltersComponent {
   readonly page: Page;
   readonly priceRangeHandles: Locator;
+  readonly sliderValueMin:Locator;
+  readonly sliderValueMax:Locator
 
   constructor(page: Page) {
     this.page = page;
     this.priceRangeHandles = page.getByRole("slider");
+    this.sliderValueMin=page.locator(".ngx-slider-model-value"),
+    this.sliderValueMax=page.locator(".ngx-slider-model-high")
   }
 
   // Locators for assertions (e.g. expect(...).toBeChecked())

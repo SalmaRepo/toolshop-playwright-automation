@@ -15,10 +15,15 @@ export class PaginationComponent {
     this.previousButton = page.locator("button[aria-label='Previous']");
     this.currentPage = page.locator("li.page-item.active");
     this.lastPage=page.locator("li.page-item.disabled");
-    this.nextPageItem = this.nextButton.locator("xpath=..");
+    this.nextPageItem = page
+  .locator("li.page-item")
+  .filter({ has: this.nextButton });;
   }
 
   async goToNextPage() {
+     if (await this.isLastPage()) {
+      throw new Error("Already on the last page, cannot go to the next page");
+    }
     await waitForProductsResponse(this.page, () => this.nextButton.click());
   }
 
