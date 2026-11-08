@@ -4,6 +4,7 @@ import { HeaderComponent } from "../../components/HeaderComponent";
 import { FiltersComponent } from "../../components/FiltersComponent";
 import { waitForProductsResponse } from "../../utils/waits";
 import { ProductDetailsPage } from "../../pages/ProductDetailPage";
+import { sortedAZ, sortedNumbers } from "../../utils/sorting";
 
 test.describe("Product listing, search, filters and sorting", () => {
   test("UI-PRD-01: Home page product grid loads with name, price and image for each product @P1 @S", async ({
@@ -144,7 +145,6 @@ test.describe("Product listing, search, filters and sorting", () => {
     page,
   }) => {
     const listing = new ProductListingPage(page);
-    const details = new ProductDetailsPage(page);
 
     const priceRangeMin = 20;
     const priceRangeMax = 110;
@@ -195,5 +195,192 @@ test.describe("Product listing, search, filters and sorting", () => {
     }
 
     expect(reachedLastPage).toBe(true);
+  });
+  test("UI-PRD-07:Sort by name (ascending and descending): order is verified @P2 @regression", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+
+    const optionAscending = "Name (A - Z)";
+    const optionDescending = "Name (Z - A)";
+
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+
+    const namesBefore = await listing.getAllProductNames();
+
+    await listing.sortProducts(optionAscending);
+    await expect
+      .poll(async () => {
+        const names = (await listing.getAllProductNames()).map((n) => n.trim());
+        return JSON.stringify(names) === JSON.stringify(sortedAZ(names));
+      })
+      .toBe(true);
+    await listing.waitForGridToChange(namesBefore);
+
+    const ascending = await listing.getNamesFromAllPages();
+    expect(ascending).toEqual(sortedAZ(ascending));
+
+    // Descending: start again from the default page
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+    const defaultNames2 = await listing.getAllProductNames();
+
+    await listing.sortProducts(optionDescending);
+    await expect
+      .poll(async () => {
+        const names = (await listing.getAllProductNames()).map((n) => n.trim());
+        return (
+          JSON.stringify(names) === JSON.stringify(sortedAZ(names).reverse())
+        );
+      })
+      .toBe(true);
+    await listing.waitForGridToChange(defaultNames2);
+
+    const descending = await listing.getNamesFromAllPages();
+    expect(descending).toEqual(sortedAZ(descending).reverse());
+  });
+
+  test("UI-PRD-08:Sort by price (low to high and high to low): order is verified @P2 @regression", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+
+    const namesBefore = await listing.getAllProductNames();
+
+    await listing.sortProducts("Price (High - Low)");
+    await expect
+      .poll(async () => {
+        const prices = await listing.getAllProductPrices();
+        return (
+          prices.length > 0 &&
+          prices.every((val, index) => val === sortedNumbers(prices)[index])
+        );
+      })
+      .toBe(true);
+    await listing.waitForGridToChange(namesBefore);
+
+    const descendingPrices = await listing.getPricesFromAllPages();
+    expect(descendingPrices).toEqual(sortedNumbers(descendingPrices));
+
+    //Ascending: start again from the default page
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+    const defaultNames2 = await listing.getAllProductNames();
+
+    await listing.sortProducts("Price (Low - High)");
+    await expect
+      .poll(async () => {
+        const prices = await listing.getAllProductPrices();
+        return (
+          prices.length > 0 &&
+          prices.every(
+            (val, index) => val === sortedNumbers(prices).reverse()[index],
+          )
+        );
+      })
+      .toBe(true);
+    await listing.waitForGridToChange(defaultNames2);
+
+    const ascendingPrices = await listing.getPricesFromAllPages();
+    expect(ascendingPrices).toEqual(sortedNumbers(ascendingPrices).reverse());
+  });
+
+  test("UI-PRD-09:Pagination moves between pages and shows different products @P2 @regression", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+    const max_pages = 10;
+    let pagesMoved = 0;
+    let reachedLastPage = false;
+    for (let i = 0; i <= max_pages; i++) {
+      if (await listing.pagination.isLastPage()) {
+        reachedLastPage = true;
+        break;
+      }
+      const productsInCurrentPage = await listing.getAllProductNames();
+      await listing.waitForProducts();
+      const pageNo = await listing.pagination.getCurrentPageNumber();
+      await listing.pagination.goToNextPage();
+      await listing.waitForGridToChange(productsInCurrentPage);
+      await expect
+        .poll(() => listing.pagination.getCurrentPageNumber())
+        .toBe(pageNo + 1);
+      const productsInNextPage = await listing.getAllProductNames();
+      expect(
+        productsInNextPage.filter((name) =>
+          productsInCurrentPage.includes(name),
+        ),
+      ).toEqual([]);
+      pagesMoved++;
+    }
+    expect(reachedLastPage, "never reached the last page").toBe(true);
+    expect(pagesMoved).toBeGreaterThan(0);
+  });
+
+  test("UI-PRD-10:Product detail page shows name, price, description and image consistent with the listing @P1 @smoke", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+    const details = new ProductDetailsPage(page);
+
+    await listing.navigateToProductsPage();
+    const card = listing.productCards.first();
+    await listing.waitForProducts();
+    await expect(card.locator(".card-title")).toBeVisible();
+    await expect
+      .poll(() => card.locator(".card-title").textContent())
+      .not.toHaveLength(0);
+    const productName = (await listing.getProductName(card).innerText()).trim();
+    const productPrice = (await listing.getProductPrice(card).textContent())
+      ?.trim()
+      .slice(1);
+    const productImage = await listing
+      .getProductImage(card)
+      .getAttribute("alt");
+    const productLink = await card.getAttribute("href");
+    await card.click();
+    await expect(page).toHaveURL(productLink!);
+    await expect(details.name).toHaveText(productName);
+    await expect(details.price).toContainText(productPrice!);
+    expect(await details.image.getAttribute("alt")).toEqual(productImage);
+  });
+
+  test("UI-PRD-11:Quantity can be changed on the product detail Page @P3 @Regression", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+    const details = new ProductDetailsPage(page);
+    await listing.getProductDetails();
+    let quantity = await details.getQuantity();
+    await details.clickProductIncrease();
+    expect(Number(await details.getQuantity())).toBeGreaterThan(
+      Number(quantity),
+    );
+    quantity = await details.getQuantity();
+    await details.clickProductDecrease();
+    expect(Number(await details.getQuantity())).toBeLessThan(Number(quantity));
+  });
+
+  //Add to cart from the product detail page
+  test("UI-PRD-12:Add to cart from the product detail page @P1 @smoke", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+    const details = new ProductDetailsPage(page);
+    await listing.getProductDetails();
+    await expect(details.addToCart).toBeVisible();  
+    const quantityToAdd=Number(await details.quantity.inputValue());
+    const cartBefore = await details.getCartCount();
+    await expect(details.cartQuantity).toHaveCount(0);
+    await details.addToCart.click();
+    await expect(details.addedToCartMessage).toContainText(
+      "Product added to shopping cart.",
+    );
+    await expect(details.cartQuantity).toHaveText(String(cartBefore+quantityToAdd));
   });
 });

@@ -17,7 +17,7 @@ export class PaginationComponent {
     this.lastPage=page.locator("li.page-item.disabled");
     this.nextPageItem = page
   .locator("li.page-item")
-  .filter({ has: this.nextButton });;
+  .filter({ has: this.nextButton });
   }
 
   async goToNextPage() {
