@@ -1,8 +1,5 @@
 import { test, expect } from "@playwright/test";
 import { ProductListingPage } from "../../pages/ProductListingPage";
-import { HeaderComponent } from "../../components/HeaderComponent";
-import { FiltersComponent } from "../../components/FiltersComponent";
-import { waitForProductsResponse } from "../../utils/waits";
 import { ProductDetailsPage } from "../../pages/ProductDetailPage";
 import { sortedAZ, sortedNumbers } from "../../utils/sorting";
 
@@ -327,27 +324,11 @@ test.describe("Product listing, search, filters and sorting", () => {
   }) => {
     const listing = new ProductListingPage(page);
     const details = new ProductDetailsPage(page);
-
-    await listing.navigateToProductsPage();
-    const card = listing.productCards.first();
-    await listing.waitForProducts();
-    await expect(card.locator(".card-title")).toBeVisible();
-    await expect
-      .poll(() => card.locator(".card-title").textContent())
-      .not.toHaveLength(0);
-    const productName = (await listing.getProductName(card).innerText()).trim();
-    const productPrice = (await listing.getProductPrice(card).textContent())
-      ?.trim()
-      .slice(1);
-    const productImage = await listing
-      .getProductImage(card)
-      .getAttribute("alt");
-    const productLink = await card.getAttribute("href");
-    await card.click();
-    await expect(page).toHaveURL(productLink!);
-    await expect(details.name).toHaveText(productName);
-    await expect(details.price).toContainText(productPrice!);
-    expect(await details.image.getAttribute("alt")).toEqual(productImage);
+    const allDetails=await listing.getProductDetails();
+     
+    await expect(details.name).toHaveText(allDetails.name);
+    await expect(details.price).toContainText(allDetails.price!);
+    expect(await details.image.getAttribute("alt")).toEqual(allDetails.image);
   });
 
   test("UI-PRD-11:Quantity can be changed on the product detail Page @P3 @Regression", async ({

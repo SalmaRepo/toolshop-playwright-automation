@@ -14,6 +14,7 @@ export class ProductDetailsPage {
   readonly addToCart:Locator;
   readonly cartQuantity:Locator;
   readonly addedToCartMessage:Locator;
+  readonly cartButton:Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -28,7 +29,8 @@ export class ProductDetailsPage {
     this.quantity=page.locator("#quantity-input");
     this.addToCart=page.locator("#btn-add-to-cart");
     this.cartQuantity=page.locator("#lblCartCount");
-    this.addedToCartMessage=page.locator("#toast-container")
+    this.addedToCartMessage=page.locator("#toast-container");
+    this.cartButton=page.getByTestId("nav-cart");
 
   }
 

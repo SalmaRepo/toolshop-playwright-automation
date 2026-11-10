@@ -151,7 +151,6 @@ export class ProductListingPage {
 
   async getProductDetails() {
     await this.navigateToProductsPage();
-
     const card = this.productCards.filter({
     hasNot: this.page.locator("[data-test='out-of-stock']"),
   }).first();
@@ -161,7 +160,7 @@ export class ProductListingPage {
       .poll(() => card.locator(".card-title").textContent())
       .not.toHaveLength(0);
     const productName = (await this.getProductName(card).innerText()).trim();
-    const productPrice = (await this.getProductPrice(card).textContent())
+    const productPrice = (await this.getProductPrice(card).innerText())
       ?.trim()
       .slice(1);
     const productImage = await this.getProductImage(card).getAttribute("alt");
@@ -169,6 +168,7 @@ export class ProductListingPage {
     await card.click();
     await expect(this.page).toHaveURL(productLink!);
     await expect(this.details.name).toHaveText(productName);
+    return {name:productName,price:productPrice,image:productImage}
   }
 
 }
