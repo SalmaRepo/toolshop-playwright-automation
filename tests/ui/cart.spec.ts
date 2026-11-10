@@ -42,4 +42,93 @@ test.describe("cart tests", () => {
       .reduce((total, itemTotal) => (itemTotal = total + itemTotal), 0);
     await expect(cart.cartTotal).toHaveText("$" + String(cartTotal));
   });
+
+  test("UI-CRT-02: Add several different products: all appear in the cart @P2 @Regression", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+    const details = new ProductDetailsPage(page);
+    const cart = new CartPage(page);
+    const header = new HeaderComponent(page);
+
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+    const cards = listing.productCards.filter({
+      hasNot: listing.page.locator("[data-test='out-of-stock']"),
+    });
+    await expect
+      .poll(async () => {
+        await cards.count();
+      })
+      .not.toBe(0);
+    await listing.waitForProducts();
+    const productLinks = await Promise.all(
+      (await cards.all()).map((card) => card.getAttribute("href")),
+    );
+    const productNames: string[] = [];
+    for (let i = 0; i < productLinks.length; i++) {
+      await page.goto(`${productLinks[i]}`);
+      await expect
+        .poll(async () => {
+          await details.name.innerText();
+        })
+        .not.toBe("");
+      productNames.push(await details.name.innerText());
+      await details.addToCart.click();
+      await expect(details.addedToCartMessage).toContainText(
+        "Product added to shopping cart.",
+      );
+    }
+    console.log(productNames);
+    await expect(header.cart).toBeVisible();
+    await header.cart.click();
+    await expect(page).toHaveURL("/checkout");
+    await expect(cart.activeCartTitle).toBeVisible();
+    await expect(cart.itemName).toHaveCount(productNames.length);
+  });
+
+  test("UI-CRT-03: Add the same product twice: quantity and total are corect @P2 @Regression", async ({
+    page,
+  }) => {
+    const listing = new ProductListingPage(page);
+    const details = new ProductDetailsPage(page);
+    const cart = new CartPage(page);
+    const header = new HeaderComponent(page);
+
+    await listing.navigateToProductsPage();
+    await listing.waitForProducts();
+    const cards = listing.productCards.filter({
+      hasNot: listing.page.locator("[data-test='out-of-stock']"),
+    });
+    await expect
+      .poll(async () => {
+        await cards.count();
+      })
+      .not.toBe(0);
+    await listing.waitForProducts();
+    const productLinks = await Promise.all(
+      (await cards.all()).map((card) => card.getAttribute("href")),
+    );
+    let productPrice = 0;
+    for (let i = 0; i < 2; i++) {
+      await page.goto(`${productLinks[1]}`);
+      await expect
+        .poll(async () => {
+          await details.name.innerText();
+        })
+        .not.toBe("");
+      await details.addToCart.click();
+      productPrice += parsePrice(await details.price.innerText());
+      await expect(details.addedToCartMessage).toContainText(
+        "Product added to shopping cart.",
+      );
+    }
+    await expect(header.cart).toBeVisible();
+    await header.cart.click();
+    await expect(page).toHaveURL("/checkout");
+    await expect(cart.activeCartTitle).toBeVisible();
+    await expect(cart.itemQuantity).toHaveValue(String(2));
+    await expect(cart.itemTotal).toHaveText("$" + String(productPrice));
+    await expect(cart.cartTotal).toHaveText("$" + String(productPrice));
+  });
 });
