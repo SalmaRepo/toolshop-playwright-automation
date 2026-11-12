@@ -150,4 +150,25 @@ test.describe("cart tests", () => {
       })
       .toBe(0);
   });
+
+  test("UI-CRT-07: Remove all items: empty cart state is shown @P2 @Regression",async ({page})=>{
+    const cart = new CartPage(page);
+     for (let i = 0; i < 4; i++) {
+      await cart.addProductToCart(i);
+    }
+    await cart.openCart();
+      await expect.poll(async ()=>{
+       return await cart.itemName.count()
+    }).toBe(4);
+    const itemsBefore=await cart.itemName.allTextContents()
+    await page.reload()
+    await expect.poll(async ()=>{
+       return await cart.itemName.count()
+    }).toBe(4);
+    const itemsAfter=await cart.itemName.allTextContents();
+    console.log(itemsBefore);
+    console.log(itemsAfter)
+    expect(itemsBefore).toEqual(itemsAfter)
+
+  })
 });
