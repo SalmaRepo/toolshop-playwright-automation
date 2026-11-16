@@ -2,7 +2,6 @@ import { test, expect } from "@playwright/test";
 import { ProductListingPage } from "../../pages/ProductListingPage";
 import { ProductDetailsPage } from "../../pages/ProductDetailPage";
 import { CartPage } from "../../pages/CartPage";
-import { HeaderComponent } from "../../components/HeaderComponent";
 import { parsePrice } from "../../utils/price";
 test.describe("cart tests", () => {
   test("UI-CRT-01: Add a single product: it appears in the cart with the correct price @P1 @smoke", async ({
@@ -66,10 +65,8 @@ test.describe("cart tests", () => {
   test("UI-CRT-03: Add the same product twice: quantity and total are corect @P2 @Regression", async ({
     page,
   }) => {
-    const listing = new ProductListingPage(page);
     const details = new ProductDetailsPage(page);
     const cart = new CartPage(page);
-    const header = new HeaderComponent(page);
     let productPrice = 0;
 
     await cart.addProductToCart(1);
@@ -143,7 +140,9 @@ test.describe("cart tests", () => {
     }
 
     await expect(cart.removeItem).not.toBeVisible();
-    await expect(page.getByText("The cart is empty. Nothing to display.")).toBeVisible()
+    await expect(
+      page.getByText("The cart is empty. Nothing to display."),
+    ).toBeVisible();
     await expect
       .poll(async () => {
         return cart.itemName.count();
@@ -151,24 +150,29 @@ test.describe("cart tests", () => {
       .toBe(0);
   });
 
-  test("UI-CRT-07: Remove all items: empty cart state is shown @P2 @Regression",async ({page})=>{
+  test("UI-CRT-07: Cart contents persist after a page refresh @P2 @Regression", async ({
+    page,
+  }) => {
     const cart = new CartPage(page);
-     for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 4; i++) {
       await cart.addProductToCart(i);
     }
     await cart.openCart();
-      await expect.poll(async ()=>{
-       return await cart.itemName.count()
-    }).toBe(4);
-    const itemsBefore=await cart.itemName.allTextContents()
-    await page.reload()
-    await expect.poll(async ()=>{
-       return await cart.itemName.count()
-    }).toBe(4);
-    const itemsAfter=await cart.itemName.allTextContents();
+    await expect
+      .poll(async () => {
+        return await cart.itemName.count();
+      })
+      .toBe(4);
+    const itemsBefore = await cart.itemName.allTextContents();
+    await page.reload();
+    await expect
+      .poll(async () => {
+        return await cart.itemName.count();
+      })
+      .toBe(4);
+    const itemsAfter = await cart.itemName.allTextContents();
     console.log(itemsBefore);
-    console.log(itemsAfter)
-    expect(itemsBefore).toEqual(itemsAfter)
-
-  })
+    console.log(itemsAfter);
+    expect(itemsBefore).toEqual(itemsAfter);
+  });
 });
